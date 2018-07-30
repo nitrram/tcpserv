@@ -12,6 +12,8 @@ public:
 	 */
 	Client(std::string address, int port);
 
+	~Client();
+
 	/** Controlling method
 	 *
 	 * \param data User can provide whatever input, but only defined commands are evaluated

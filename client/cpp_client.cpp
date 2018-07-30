@@ -85,6 +85,11 @@ Client::Client(std::string address, int port) :
 	}
 }
 
+Client::~Client()
+{
+	exit();
+}
+
 bool Client::command(std::string data)
 {
 	if(m_Working && m_Fd != -1)
