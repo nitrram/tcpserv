@@ -8,6 +8,7 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 
+// routine for adding O_NONBLOCK flag to the open descriptor
 static int socket_nonblocking(int socket)
 {
 	int err = 0;
@@ -32,7 +33,7 @@ static int socket_nonblocking(int socket)
 	return 0;
 }
 
-
+// create, bind, listen
 int server_listen(server_t* server) {
 	int err = 0;
 
@@ -121,13 +122,10 @@ int server_work(server_t* server) {
 		}
 
 		for (int i = 0; i < fds_len; i++) {
-			//int event_fd = events[i].data.fd;
-
 			if (events[i].data.fd == server->listen_fd) {
 				socklen_t client_len;
 				struct sockaddr_in client_addr;
 				client_len = sizeof(client_addr);
-
 
 				server->conn_fd = accept(server->listen_fd,
 										 (struct sockaddr *) &client_addr, &client_len);
@@ -161,34 +159,3 @@ int server_work(server_t* server) {
 
 	return 0;
 }
-
-/*
-int server_accept(server_t* server) {
-	int err = 0;
-	int conn_fd;
-	socklen_t client_len;
-	struct sockaddr_in client_addr;
-
-	client_len = sizeof(client_addr);
-
-	err =
-	  (conn_fd = accept(
-		 server->listen_fd, (struct sockaddr*)&client_addr, &client_len));
-	if (err == -1) {
-		perror("accept");
-		printf("failed accepting connection\n");
-		return err;
-	}
-
-	printf("Client connected!\n");
-
-	err = close(conn_fd);
-	if (err == -1) {
-		perror("close");
-		printf("failed to close connection\n");
-		return err;
-	}
-
-	return err;
-}
-*/

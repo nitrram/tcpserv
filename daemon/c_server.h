@@ -7,8 +7,8 @@ extern "C" {
 
 typedef int (*connection_handler)(int);
 
-/**
- * Encapsulates the properties of the server.
+/** TODO make it dynamic in the terms of open connections
+ *
  */
 typedef struct server {
 	int epoll_fd;
@@ -20,15 +20,14 @@ typedef struct server {
 
 
 /**
- * Creates a socket for the server and makes it passive such that
- * we can wait for connections on it later.
+ *
  */
 int server_listen(server_t* server);
 
 
-	/**
- * Accepts connections and processes them using the handler specfied
- * in the server struct.
+/**
+ * Loop in the events coming from epoll
+ *
  */
 int server_work(server_t* server);
 

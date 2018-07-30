@@ -7,11 +7,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * server worker
+ */
 void loop_server();
 
+/**
+ * connections' handler
+ */
 int conn_handler(int fd);
 
-void sig_handler(int signo);
 
 static server_t server;
 
@@ -50,7 +55,7 @@ int conn_handler(int fd)
 	int	 n = 0;
 	char buf[1024];
 
-	for (;;) {
+	while(1) {
 		n = read(fd, buf, 1024);
 		if (n == -1) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -67,7 +72,7 @@ int conn_handler(int fd)
 		}
 	}
 
-	//buf = command
+	//TODO handle the command and send back the response accordingly
 	printf("%s\n", buf);
 
 	char * response = "test\n";
@@ -80,29 +85,4 @@ int conn_handler(int fd)
 	}
 
 	return 0;
-}
-
-void sig_handler(int signo __attribute__((unused))) {
-	int err;
-
-	if (server.listen_fd != -1) {
-		err = close(server.listen_fd);
-		if (err == -1) {
-			perror("close");
-			printf("failed to close connection file descriptor\n");
-			exit(err);
-		}
-		server.listen_fd = -1;
-	}
-
-	if (server.epoll_fd != -1) {
-		err = close(server.epoll_fd);
-		if (err == -1) {
-			perror("close");
-			printf("failed to close server epoll fd\n");
-			exit(err);
-		}
-
-		server.epoll_fd = -1;
-	}
 }

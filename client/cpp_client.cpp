@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <vector>
+#include <string>
 
 Client::Client(std::string address, int port) :
 	m_Fd(-1),
@@ -22,7 +23,7 @@ Client::Client(std::string address, int port) :
 	m_Fd = socket(AF_INET , SOCK_STREAM , 0);
 	if (m_Fd == -1)
 	{
-		std::err << "Could not create socket\n";
+		std::cerr << "Could not create socket\n";
 	}
 	else
 	{
@@ -32,8 +33,7 @@ Client::Client(std::string address, int port) :
 			struct in_addr **addr_list;
 			if ( (he = gethostbyname( m_Address.c_str() ) ) == NULL)
 			{
-				perror("gethostbyname");
-				std::error << "Failed to resolve hostname\n";
+				std::cerr << "Failed to resolve hostname\n";
 			}
 			else {
 				addr_list = (struct in_addr **) he->h_addr_list;
@@ -57,7 +57,7 @@ Client::Client(std::string address, int port) :
 			m_Server.sin_port = htons( port );
 			if (connect(m_Fd , (struct sockaddr *)&m_Server , sizeof(m_Server)) < 0)
 			{
-				perror("connect failed. Error");
+				std::cerr << "connect failed. Error\n";
 				m_Working = false;
 			}
 		}
@@ -70,7 +70,7 @@ bool Client::command(std::string data)
 	{
 		if( send(m_Fd , data.c_str() , strlen( data.c_str() ) , 0) < 0)
 		{
-			std::error << "Send failed : " << data << std::endl;
+			std::cerr << "Send failed : " << data << std::endl;
 			return false;
 		}
 	}
@@ -84,7 +84,7 @@ bool Client::command(std::string data)
 std::string Client::receive()
 {
 	char buffer[1] = {};
-	string reply;
+	std::string reply;
 	while (buffer[0] != '\n') {
 		if( recv(m_Fd , buffer , sizeof(buffer) , 0) < 0)
 		{
