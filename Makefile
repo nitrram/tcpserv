@@ -8,10 +8,6 @@ CC=gcc
 CXX=g++
 CPP=cpp
 
-#OBJECTS_CPP = $(patsubst %.cpp,%.o,$(wildcard *.cpp))
-#OBJECTS_C = $(patsubst %.c,%.o,$(wildcard *.c))
-#OBJECTS += $(OBJECTS_CPP)
-#OBJECTS += $(OBJECTS_C)
 
 BINDIR = bin
 OBJDIR = obj
@@ -19,38 +15,39 @@ DAEMON_PATH = daemon
 CLIENT_PATH = client
 rm = rm -f
 
+$(shell mkdir $(BINDIR) $(OBJDIR))
 
 DAEMON_C_TARGET = daemon_c
 DAEMON_C_SOURCES  := $(wildcard $(DAEMON_PATH)/*.c)
 DAEMON_C_INCLUDES := $(wildcard $(DAEMON_PATH)/*.h)
-DAEMON_C_OBJECTS  := $(SOURCES:$(DAEMON_PATH)/%.c=$(OBJDIR)/%.o)
+DAEMON_C_OBJECTS  := $(DAEMON_C_SOURCES:$(DAEMON_PATH)/%.c=$(OBJDIR)/%.o)
 
 CLIENT_CPP_TARGET = client_cpp
 CLIENT_CPP_SOURCES  := $(wildcard $(CLIENT_PATH)/*.cpp)
 CLIENT_CPP_INCLUDES := $(wildcard $(CLIENT_PATH)/*.h)
-CLIENT_CPP_OBJECTS  := $(SOURCES:$(CLIENT_PATH)/%.cpp=$(OBJDIR)/%.o)
+CLIENT_CPP_OBJECTS  := $(CLIENT_CPP_SOURCES:$(CLIENT_PATH)/%.cpp=$(OBJDIR)/%.o)
 
 
-#all: $(BINDIR)/$(DAEMON_C_TARGET)
+all: $(BINDIR)/$(DAEMON_C_TARGET) $(BINDIR)/$(CLIENT_CPP_TARGET)
+
+$(BINDIR)/$(DAEMON_C_TARGET): $(DAEMON_C_OBJECTS)
+	@echo $(DAEMON_C_OBJECTS)
+	@$(CC) $(CFLAGS) $(DAEMON_C_OBJECTS) -g -o $@
+
+
+$(BINDIR)/$(CLIENT_CPP_TARGET): $(CLIENT_CPP_OBJECTS)
+	@echo $(CLIENT_CPP_OBJECTS)
+	$(CXX) $(CXXFLAGS) $(CLIENT_CPP_OBJECTS) -g -o $@
+
 
 $(DAEMON_C_OBJECTS): $(OBJDIR)/%.o : $(DAEMON_PATH)/%.c
-	@echo "yeah"
 	@$(CC) $(CFLAGS) -c $< -o $@
 	@echo "Compiled "$<" successfully!"
 
-#$(BINDIR)/$(DAEMON_C_TARGET): $(DAEMON_C_OBJECTS)
-#	@echo $(DAEMON_C_OBJECTS)
-#	$(CC) $(CFLAGS) $(DAEMON_C_OBJECTS) -g -o $@
 
-
-
-# $(BINDIR)/$(CLIENT_CPP_TARGET): $(CLIENT_CPP_OBJECTS)
-#	@echo $(CLIENT_CPP_OBJECTS)
-#	$(CXX) $(CXXFLAGS) $(CLIENT_CPP_OBJECTS) -g -o $@
-
-# $(CLIENT_CPP_OBJECTS): $(OBJDIR)/%.o : $(CLIENT_PATH)/%.cpp
-#	@$(CXX) $(CXXFLAGS) -c $< -o $@
-#	@echo "Compiled "$<" successfully!"
+$(CLIENT_CPP_OBJECTS): $(OBJDIR)/%.o : $(CLIENT_PATH)/%.cpp
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	@echo "Compiled "$<" successfully!"
 
 .PHONY: clean
 clean:
