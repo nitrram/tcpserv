@@ -4,14 +4,14 @@
 #include <string.h>
 #include <unistd.h>
 
-int print_mem_stats(FILE *out) {
+int print_mem_stats(char *out) {
 
 	FILE * fp;
 	char * line = NULL;
 	size_t n = 0;
 	ssize_t br;
 
-	/*read the 1st line at stats in order to get the cpu info*/
+	//read the 1st line at stats in order to get the cpu info
 	fp = fopen("/proc/meminfo", "r");
 	if (fp == NULL)
 		return -1;
@@ -36,21 +36,20 @@ int print_mem_stats(FILE *out) {
 			}
 
 			line = start;
-			if(line)
-				free(line);
 		}
 	}
 
 	// used = total - free - buffers - cached
-	fprintf(out, "mem: %.2f [MB]\n",(float)(map[0]-map[1]-map[3]-map[4]) / 1024.f);
-
+	int nout = sprintf(out, "%.2f [MB]\n",(float)(map[0]-map[1]-map[3]-map[4]) / 1024.f);
 	fclose(fp);
+	if(line)
+		free(line);
 
 
-	return 0;
+	return nout;
 }
 
-int print_cpu_stats(FILE *out) {
+int print_cpu_stats(char *out) {
 
 	int result = 0;
 	int map[10],prev_map[10];
@@ -58,6 +57,7 @@ int print_cpu_stats(FILE *out) {
 	if((result = get_cpu_stats(prev_map)))
 		return result;
 
+	// delay 400ms
 	usleep(400000);
 
 	if((result = get_cpu_stats(map)))
@@ -72,10 +72,9 @@ int print_cpu_stats(FILE *out) {
 	int totald = (idle + non_idle) - (prev_idle + prev_non_idle);
 	int idled = (idle - prev_idle);
 
+	int n = sprintf(out, "%.8f [%%]\n", (float)(totald-idled) / (float)(totald*100.0f));
 
-	fprintf(out, "cpu: %.8f\n", (float)(totald-idled) / (float)(totald*100.0f));
-
-	return 0;
+	return n;
 }
 
 int get_cpu_stats(int * const map) {
@@ -84,7 +83,7 @@ int get_cpu_stats(int * const map) {
 	size_t n = 0;
 	ssize_t br;
 
-	/*read the 1st line at stats in order to get the cpu info*/
+	// read the 1st line at stats in order to get the cpu info
 	fp = fopen("/proc/stat", "r");
 	if (fp == NULL)
 		return -1;
@@ -93,6 +92,7 @@ int get_cpu_stats(int * const map) {
 		char *start = line;
 		size_t map_index = 0;
 		int reading = 0;
+		// grep numbers out of the line into the map
 		while(*line != '\0') {
 			if(*line >= 0x30 && *line <= 0x39) {
 				reading++;
@@ -108,6 +108,7 @@ int get_cpu_stats(int * const map) {
 			line++;
 		}
 
+		// finalize the loop reading the last number
 		if(reading) {
 			char *stat = (char*)(malloc(sizeof(char) * reading +1));
 			memcpy(stat, line-reading, reading+1);
@@ -115,6 +116,7 @@ int get_cpu_stats(int * const map) {
 			free(stat);
 		}
 
+		// set it back (so that the free() doesn't crash)
 		line = start;
 	}
 

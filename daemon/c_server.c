@@ -37,7 +37,7 @@ static int socket_nonblocking(int socket)
 int server_listen(server_t* server) {
 	int err = 0;
 
-	/* socket creation */
+	// socket creation
 	err = (server->listen_fd = socket(AF_INET, SOCK_STREAM, 0));
 	if (err == -1) {
 		perror("socket");
@@ -45,7 +45,7 @@ int server_listen(server_t* server) {
 		return err;
 	}
 
-	/* socket binding */
+	// socket binding
 	struct sockaddr_in server_addr = { 0 };
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -59,14 +59,14 @@ int server_listen(server_t* server) {
 		return err;
 	}
 
-	/* make it non-blocking */
+	// make it non-blocking
 	err = socket_nonblocking(server->listen_fd);
 	if (err) {
 		printf("failed to make server socket nonblocking\n");
 		return err;
 	}
 
-	/* start listening */
+	// start listening
 	err = listen(server->listen_fd, 5);
 	if (err == -1) {
 		perror("listen");
@@ -122,6 +122,15 @@ int server_work(server_t* server) {
 		}
 
 		for (int i = 0; i < fds_len; i++) {
+
+			// when the connection hangs up from error or, peer side
+			// carry on waiting for next events
+			if ((events[i].events & (EPOLLERR | EPOLLHUP)) ||
+				(!(events[i].events & EPOLLIN))) {
+				continue;
+			}
+
+			// if the event is coming from the listening socket
 			if (events[i].data.fd == server->listen_fd) {
 				socklen_t client_len;
 				struct sockaddr_in client_addr;
@@ -151,6 +160,7 @@ int server_work(server_t* server) {
 					perror("epoll_ctl: conn_sock");
 					return errno;
 				}
+			// if the event is coming from the connected socket
 			} else {
 				server->connection_callback(events[i].data.fd);
 			}

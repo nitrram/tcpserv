@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-	int print_mem_stats(FILE *);
-	int print_cpu_stats(FILE *);
+	int print_mem_stats(char *);
+	int print_cpu_stats(char *);
 
 #ifdef __cplusplus
 }
@@ -18,7 +18,7 @@ extern "C" {
  * 2) nice
  * 3) system
  * 4) idle
- * 5) nowait
+ * 5) iowait
  * 6) irq
  * 7) softirq
  * 8) steal

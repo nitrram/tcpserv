@@ -20,6 +20,7 @@ Client::Client(std::string address, int port) :
 	m_Working(false)
 {
 
+	//TODO move the whole code into a separate method !keep it simple!
 	m_Fd = socket(AF_INET , SOCK_STREAM , 0);
 	if (m_Fd == -1)
 	{
@@ -55,8 +56,28 @@ Client::Client(std::string address, int port) :
 		{
 			m_Server.sin_family = AF_INET;
 			m_Server.sin_port = htons( port );
+
+			/*
+			//	non-blocking
+			if( (arg = fcntl(m_Fd, F_GETFL, NULL)) < 0) {
+				std::cerr << "Error: " << strerror(errno) << std::endl;
+				m_Working = false;
+			}
+			arg |= O_NONBLOCK;
+			if( fcntl(soc, F_SETFL, arg) < 0) {
+				std::cerr << "Error: " << strerror(errno) << std::endl;
+				m_Working = false;
+			}
+			*/
+
+			//TODO this must be non-blocking
 			if (connect(m_Fd , (struct sockaddr *)&m_Server , sizeof(m_Server)) < 0)
 			{
+				/*
+				if (errno == EINPROGRESS) {
+					//TODO check on select(m_Fd) with timeout
+					}
+				*/
 				std::cerr << "connect failed. Error\n";
 				m_Working = false;
 			}

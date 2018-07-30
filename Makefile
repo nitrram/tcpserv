@@ -15,7 +15,7 @@ DAEMON_PATH = daemon
 CLIENT_PATH = client
 rm = rm -f
 
-$(shell mkdir $(BINDIR) $(OBJDIR))
+$(shell mkdir -p $(BINDIR) $(OBJDIR))
 
 DAEMON_C_TARGET = daemon_c
 DAEMON_C_SOURCES  := $(wildcard $(DAEMON_PATH)/*.c)
@@ -51,10 +51,10 @@ $(CLIENT_CPP_OBJECTS): $(OBJDIR)/%.o : $(CLIENT_PATH)/%.cpp
 
 .PHONY: clean
 clean:
-	@$(rm) $(DAEMON_C_OBJECTS)
+	@$(rm) $(DAEMON_C_OBJECTS) $(CLIENT_CPP_OBJECTS)
 	@echo "Cleanup complete!"
 
 .PHONY: remove
 remove: clean
-	@$(rm) $(BINDIR)/$(DAEMON_C_TARGET)
+	@$(rm) $(BINDIR)/$(DAEMON_C_TARGET) $(BINDIR)/$(CLIENT_CPP_TARGET)
 	@echo "Executable removed!"

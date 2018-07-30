@@ -27,12 +27,13 @@ public:
 	 */
 	void exit();
 
-protected:
 
 	/** Reading bytes from the socket, the client is bind to.
 	 *
 	 */
 	std::string receive();
+
+protected:
 
 	inline bool isWorking() const;
 
