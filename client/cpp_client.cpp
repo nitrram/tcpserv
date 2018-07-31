@@ -28,7 +28,7 @@ Client::Client(std::string address, int port) :
 	}
 	else
 	{
-		if(inet_addr(m_Address.c_str()) == -1)
+		if(inet_addr(m_Address.c_str()) ==	INADDR_NONE)
 		{
 			struct hostent *he;
 			struct in_addr **addr_list;

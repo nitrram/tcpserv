@@ -3,16 +3,36 @@
 #include <iostream>
 #include <sstream>
 
+static void show_usage(std::string name)
+{
+	std::cerr << "Usage: " << name << " <option(s)> IP_ADDRESS\n"
+			  << "Options:\n"
+			  << "\t-h,--help\t\tShow this help message\n"
+			  << "\t-c,--connection IP_ADDRESS\tSpecify the IP address of the server"
+			  << std::endl;
+}
+
 
 int main(int argc, char *argv[]) {
 
 	std::string address = "127.0.0.1";
 	int port = 5001;
 
-	// 1st arg is the server IP
-	if(argc > 1) {
-		std::istringstream ss(argv[1]);
-		ss >> address;
+	// process command line opts
+	for (int i = 1; i < argc; ++i) {
+		std::string arg = argv[i];
+		if ((arg == "-h") || (arg == "--help")) {
+			show_usage(argv[0]);
+			return 0;
+		} else if ((arg == "-c") || (arg == "--connection")) {
+			if (i + 1 < argc) {
+				std::istringstream iss(argv[++i]);
+				iss >> address;
+			} else {
+				std::cerr << "--connection option requires one argument." << std::endl;
+				return 1;
+			}
+		}
 	}
 
 	Client client(address, port);
