@@ -53,7 +53,7 @@ namespace tcpserv {
 
 		std::ostringstream oss;
 
-		oss << static_cast<float>(totald - idled) / static_cast<float>(totald * 100.f) << " [%]\n";
+		oss << (static_cast<float>(totald - idled) / static_cast<float>(totald) * 100.f) << " [%]\n";
 
 		return oss.str();
 	}
@@ -72,6 +72,8 @@ namespace tcpserv {
 				continue;
 
 			out[i++] = std::stoi(lineElem);
+			if(i > 8)
+				break;
 		}
 
 		return out;

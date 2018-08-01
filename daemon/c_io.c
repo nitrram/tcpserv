@@ -72,7 +72,7 @@ int print_cpu_stats(char *out) {
 	int totald = (idle + non_idle) - (prev_idle + prev_non_idle);
 	int idled = (idle - prev_idle);
 
-	int n = sprintf(out, "%.8f [%%]\n", (float)(totald-idled) / (float)(totald*100.0f));
+	int n = sprintf(out, "%.8f [%%]\n", (float)(totald-idled) / (float)(totald)*100.0f);
 
 	return n;
 }
