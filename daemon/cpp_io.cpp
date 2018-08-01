@@ -14,27 +14,20 @@ namespace tcpserv {
 		std::string lineElem;
 		std::string line;
 		std::array<int, 5> map;
-		std::array<int, 5>::size_type i = 0;
-		while(std::getline(fs, line)) {
+
+		for(std::array<int, 5>::size_type i = 0; i<5; ++i) {
+			std::getline(fs, line);
 			std::istringstream iss(line);
 			while(std::getline(iss, lineElem, ' ')) {
-				std::cout << "non-filter " << lineElem << std::endl;
 				if(lineElem.empty() || (lineElem.find(":") != std::string::npos) || lineElem == "kB")
 					continue;
-				std::cout << lineElem << std::endl;
-				map[i] = std::atoi(lineElem.c_str());
+				map[i] = std::stoi(lineElem);
 				break;
 			}
-			// we need just 5 lines to compute the memory
-			if(++i >= 5)
-				break;
 		}
 
 		std::ostringstream oss;
-
-		oss.precision(2);
-
-		oss << (static_cast<float>(map[0]-map[1]-map[3]-map[4]) / 1024.f);
+		oss << (static_cast<float>(map[0]-map[1]-map[3]-map[4]) / 1024.f) << " [MB]\n";
 
 		return oss.str();
 	}
@@ -59,8 +52,6 @@ namespace tcpserv {
 		int idled = (idle - prev_idle);
 
 		std::ostringstream oss;
-
-		oss.precision(8);
 
 		oss << static_cast<float>(totald - idled) / static_cast<float>(totald * 100.f) << " [%]\n";
 

@@ -46,8 +46,6 @@ int main(int argc, char *argv[]) {
 				response =	"incorrect command\n";
 			}
 
-			std::cout << response << std::endl;
-
 			// send client the response
 			n = write(fd, response.c_str(), response.size());
 			if (n == -1) {
