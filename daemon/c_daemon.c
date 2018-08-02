@@ -1,7 +1,7 @@
 #include "c_io.h"
 #include "c_server.h"
 
-#include <pthread.h>
+
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -37,8 +37,8 @@ int main(int nchar, char *schar[]) {
 	else
 	{
 		char mem[20],cpu[20];
-		print_cpu_stats(cpu);
-		print_mem_stats(mem);
+		print_cpu_stats(cpu, sizeof(cpu));
+		print_mem_stats(mem, sizeof(mem));
 
 		printf("mem: %s", mem);
 		printf("cpu: %s", cpu);
@@ -58,10 +58,10 @@ int conn_handler(int fd)
 	char buf[1024];
 
 	// clean up the buffer
-	memset(buf, '\0', 1024);
+	memset(buf, '\0', sizeof(buf));
 
 	while(1) {
-		n = read(fd, buf, 1024);
+		n = read(fd, buf, sizeof(buf));
 		if (n == -1) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) {
 				break;
@@ -81,9 +81,9 @@ int conn_handler(int fd)
 	char response[20];
 
 	if(strcmp(buf, "mem") == 0) {
-		response_len = print_mem_stats(response);
+		response_len = print_mem_stats(response, sizeof(response));
 	} else if(strcmp(buf, "cpu") == 0) {
-		response_len = print_cpu_stats(response);
+		response_len = print_cpu_stats(response, sizeof(response));
 	} else {
 		strcpy(response, "incorrect command\n");
 		response_len = 18;

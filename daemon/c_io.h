@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-	int print_mem_stats(char *);
-	int print_cpu_stats(char *);
+  int print_mem_stats(char *, size_t);
+  int print_cpu_stats(char *, size_t);
 
 #ifdef __cplusplus
 }
@@ -27,4 +27,4 @@ extern "C" {
  * \param map Array of the CPU stats
  * \return Error code. Which is 0 if ending correctly.
  */
-int get_cpu_stats(int *const map);
+static int get_cpu_stats(int *const map);
