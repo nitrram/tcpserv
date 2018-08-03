@@ -89,8 +89,7 @@ int conn_handler(void *data)
 		n = read(connection->conn_fd, buf, sizeof(buf));
 		if (n == -1) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) {
-				//return errno; // bail out to the waiting loop
-				break;
+				return errno; // bail out to the waiting loop
 			}
 
 			perror("read");
@@ -101,18 +100,21 @@ int conn_handler(void *data)
 		if (n == 0) {
 			break;
 		}
+
 		connection->buff_len = inflateBuffer(
 			&connection->buff, connection->buff_len, buf, n);
+
+		if(connection->buff[n-1] == 0xa) // new line means end of command
+			break;
 	}
 
 	//printf("command: %s %ld\n", connection->buff, connection->buff_len);
 	int response_len = 0;
 	char response[20];
 
-
-	if(connection->buff && strcmp(connection->buff, "mem") == 0) {
+	if(connection->buff && strcmp(connection->buff, "mem\n") == 0) {
 		response_len = print_mem_stats(response, sizeof(response));
-	} else if(connection->buff && strcmp(connection->buff, "cpu") == 0) {
+	} else if(connection->buff && strcmp(connection->buff, "cpu\n") == 0) {
 		response_len = print_cpu_stats(response, sizeof(response));
 	} else {
 		strcpy(response, "incorrect command\n");

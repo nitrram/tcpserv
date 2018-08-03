@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 		std::string command;
 		std::cin >> command;
 
-		std::cout << "sent command " << command << (client.command(command) ? " succesfully\n" : " unsuccessfully\n");
+		std::cout << "sent command " << command << (client.command(command + "\n") ? " succesfully\n" : " unsuccessfully\n");
 
 		std::cout << "response: " << client.receive() << std::endl;
 	}
