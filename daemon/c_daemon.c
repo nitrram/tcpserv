@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 
 /**
  * server worker
@@ -17,6 +18,7 @@ void loop_server();
  */
 int conn_handler(int fd);
 
+void sign_handler(int signo);
 
 static server_t server;
 
@@ -24,8 +26,16 @@ int main(int nchar, char *schar[]) {
 
 	pid_t pid;
 
+	if (signal(SIGINT, sign_handler) == SIG_ERR ||
+		signal(SIGTERM, sign_handler) == SIG_ERR) {
+		perror("signal");
+		printf("failed to register signal handler\n");
+		return 1;
+	}
+
 	server.epoll_fd = -1;
-	server.conn_fd = -1;
+	server.connections_n = 0;
+	server.connections = NULL;
 	server.listen_fd = -1;
 	server.connection_callback = conn_handler;
 
@@ -33,6 +43,10 @@ int main(int nchar, char *schar[]) {
 	if(pid == 0)
 	{
 		loop_server();
+	} else if(pid < 0) {
+		perror("fork");
+		printf("failed to fork the process");
+		return errno;
 	}
 	else
 	{
@@ -50,6 +64,7 @@ void loop_server() {
 
 	server_listen(&server);
 	server_work(&server);
+	server_close(&server);
 }
 
 int conn_handler(int fd)
@@ -98,4 +113,14 @@ int conn_handler(int fd)
 	}
 
 	return 0;
+}
+
+void sign_handler(int signo __attribute__ ((unused)))
+{
+	int err = server_close(&server);
+	if (err) {
+		perror("server_close");
+		printf("failed to close the server\n");
+		exit(err);
+	}
 }

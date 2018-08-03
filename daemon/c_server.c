@@ -7,9 +7,51 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
+#include <string.h>
+#include <stdlib.h>
+
+connection_t *create_connection(server_t* server, int connection_fd) {
+	if(server->connections == NULL) {
+		server->connections = (connection_t*)malloc(sizeof(connection_t));
+		server->connections_n = 1;
+	} else {
+		++(server->connections_n);
+		server->connections = realloc(server->connections, server->connections_n * sizeof(connection_t));
+	}
+
+	connection_t *cur_con = NULL;
+	if(server->connections != NULL)
+	{
+		cur_con = server->connections + (server->connections_n-1);
+		cur_con->conn_fd = connection_fd;
+		cur_con->buff = (char*)malloc(TCPSERV_BUF_LEN * sizeof(char));
+		memset(cur_con->buff, 0, TCPSERV_BUF_LEN);
+	}
+
+	return cur_con;
+}
+
+// delete descriptor from epoll and close it
+int close_fd(server_t *server, int fd, const char *signature) {
+	int err = epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+	if (err == -1) {
+		perror("epoll_ctl");
+		printf("failed to delete %s socket to epoll event", signature);
+		return err;
+	}
+
+	err = close(fd);
+	if (err == -1) {
+		perror("close");
+		printf("failed to close %s socket", signature);
+		return err;
+	}
+
+	return 0;
+}
 
 // routine for adding O_NONBLOCK flag to the open descriptor
-static int socket_nonblocking(int socket)
+int socket_nonblocking(int socket)
 {
 	int err = 0;
 	int flags;
@@ -101,7 +143,7 @@ int server_work(server_t* server) {
 	event.events   = EPOLLIN | EPOLLET;
 
 	err =
-	  epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, server->listen_fd, &event);
+		epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, server->listen_fd, &event);
 	if (err == -1) {
 		perror("epoll_ctl");
 		printf("failed to add listen socket to epoll event");
@@ -110,7 +152,7 @@ int server_work(server_t* server) {
 
 	for (;;) {
 		int fds_len = epoll_wait(
-		  server->epoll_fd, events, 64, -1);
+			server->epoll_fd, events, sizeof(events), -1);
 		if (fds_len == -1) {
 			if (errno == EINTR) {
 				return 0;
@@ -127,6 +169,11 @@ int server_work(server_t* server) {
 			// carry on waiting for next events
 			if ((events[i].events & (EPOLLERR | EPOLLHUP)) ||
 				(!(events[i].events & EPOLLIN))) {
+
+				if(events[i].events & EPOLLHUP ) {
+					err = close_fd(server, events[i].data.fd, "peer connection");
+				}
+
 				continue;
 			}
 
@@ -136,9 +183,18 @@ int server_work(server_t* server) {
 				struct sockaddr_in client_addr;
 				client_len = sizeof(client_addr);
 
-				server->conn_fd = accept(server->listen_fd,
-										 (struct sockaddr *) &client_addr, &client_len);
-				if (server->conn_fd == -1) {
+				connection_t *cur_con = create_connection(
+					server,
+					accept(server->listen_fd,
+						   (struct sockaddr *) &client_addr, &client_len)
+				);
+
+				if(cur_con == NULL) {
+					perror("allocating memory failed");
+					return -2;
+				}
+
+				if (cur_con->conn_fd == -1) {
 					if ((errno != EAGAIN) && (errno != EWOULDBLOCK)) {
 						perror("accept");
 						return errno;
@@ -148,19 +204,19 @@ int server_work(server_t* server) {
 				}
 
 				int err;
-				if((err = socket_nonblocking(server->conn_fd))) {
+				if((err = socket_nonblocking(cur_con->conn_fd))) {
 					perror("connection blocking");
 					return err;
 				}
 
 				event.events = EPOLLIN | EPOLLET;
-				event.data.fd = server->conn_fd;
-				if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server->conn_fd,
+				event.data.fd = cur_con->conn_fd;
+				if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, cur_con->conn_fd,
 							  &event) == -1) {
 					perror("epoll_ctl: conn_sock");
 					return errno;
 				}
-			// if the event is coming from the connected socket
+				// if the event is coming from the connected socket
 			} else {
 				server->connection_callback(events[i].data.fd);
 			}
@@ -168,4 +224,35 @@ int server_work(server_t* server) {
 	}
 
 	return 0;
+}
+
+
+int server_close(server_t *server) {
+	int err = 0;
+
+	err = close_fd(server, server->listen_fd, "listen socket");
+
+	for(int i=0;i<server->connections_n;++i) {
+		connection_t *conn = server->connections + i;
+		if(conn != NULL) {
+			char signature[22]; // connection + ' ' + max size of integer digits
+			memset(signature, '\0', 22);
+			sprintf(signature, "connection %d", i);
+			err = close_fd(server, conn->conn_fd, signature);
+		}
+		if(conn->buff)
+			free(conn->buff);
+	}
+
+	server->connections_n = 0;
+	free(server->connections);
+
+	err = close(server->epoll_fd);
+	if (err == -1) {
+		perror("close");
+		printf("failed to close epoll socket");
+		return err;
+	}
+
+	return err;
 }
