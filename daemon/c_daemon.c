@@ -16,9 +16,11 @@ void loop_server();
 /**
  * connections' handler
  */
-int conn_handler(int fd);
+int conn_handler(void *data);
 
 void sign_handler(int signo);
+
+static size_t inflateBuffer(char **dst, size_t dst_len, const char *src, size_t extra);
 
 static server_t server;
 
@@ -67,18 +69,27 @@ void loop_server() {
 	server_close(&server);
 }
 
-int conn_handler(int fd)
+int conn_handler(void *data)
 {
 	int	 n = 0;
-	char buf[1024];
+	char buf[TCPSERV_BUF_LEN];
+	connection_t *connection = data;
 
 	// clean up the buffer
 	memset(buf, '\0', sizeof(buf));
 
+	if(connection->buff_len) {
+		connection->buff_len = 0;
+		free(connection->buff);
+		connection->buff = NULL;
+	}
+
+
 	while(1) {
-		n = read(fd, buf, sizeof(buf));
+		n = read(connection->conn_fd, buf, sizeof(buf));
 		if (n == -1) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				//return errno; // bail out to the waiting loop
 				break;
 			}
 
@@ -90,26 +101,41 @@ int conn_handler(int fd)
 		if (n == 0) {
 			break;
 		}
+		connection->buff_len = inflateBuffer(
+			&connection->buff, connection->buff_len, buf, n);
 	}
 
+	//printf("command: %s %ld\n", connection->buff, connection->buff_len);
 	int response_len = 0;
 	char response[20];
 
-	if(strcmp(buf, "mem") == 0) {
+
+	if(connection->buff && strcmp(connection->buff, "mem") == 0) {
 		response_len = print_mem_stats(response, sizeof(response));
-	} else if(strcmp(buf, "cpu") == 0) {
+	} else if(connection->buff && strcmp(connection->buff, "cpu") == 0) {
 		response_len = print_cpu_stats(response, sizeof(response));
 	} else {
 		strcpy(response, "incorrect command\n");
 		response_len = 18;
 	}
 
+
 	// send client the response
-	n = write(fd, response, response_len);
-	if (n == -1) {
-		perror("write");
-		printf("failed to write to client\n");
-		return -1;
+	while(1) {
+		n = write(connection->conn_fd, response, response_len);
+		if (n == -1) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				continue;
+			}
+			perror("write");
+			printf("failed to write to client\n");
+			return -1;
+		} else if(n < response_len) {
+			connection->unwritten_len = inflateBuffer(
+				&connection->unwritten, connection->unwritten_len, response+n, response_len - n);
+		}
+
+		break;
 	}
 
 	return 0;
@@ -122,5 +148,22 @@ void sign_handler(int signo __attribute__ ((unused)))
 		perror("server_close");
 		printf("failed to close the server\n");
 		exit(err);
+	}
+}
+
+size_t inflateBuffer(char **dst, size_t dst_len, const char *src, size_t extra) {
+
+	if(dst_len == 0) {
+		if(*dst != NULL) {
+			free(*dst);
+		}
+		*dst = (char*)calloc(extra+1, sizeof(char));
+		memcpy(*dst, src, extra);
+		return extra;
+	} else
+	{
+		*dst = (char*)realloc(*dst, (dst_len+extra)*sizeof(char));
+		memcpy(*dst+dst_len, src, extra);
+		return dst_len + extra;
 	}
 }

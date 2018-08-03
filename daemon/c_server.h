@@ -9,11 +9,16 @@ extern "C" {
 #endif
 
 
-typedef int (*connection_handler)(int);
+typedef int (*connection_handler)(void *);
 
 typedef struct connection {
 	int conn_fd;
 	char *buff;
+	size_t buff_len;
+
+	char *unwritten;
+	size_t unwritten_len;
+
 } connection_t;
 
 typedef struct server {

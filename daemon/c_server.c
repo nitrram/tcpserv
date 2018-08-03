@@ -24,8 +24,11 @@ connection_t *create_connection(server_t* server, int connection_fd) {
 	{
 		cur_con = server->connections + (server->connections_n-1);
 		cur_con->conn_fd = connection_fd;
-		cur_con->buff = (char*)malloc(TCPSERV_BUF_LEN * sizeof(char));
-		memset(cur_con->buff, 0, TCPSERV_BUF_LEN);
+		cur_con->buff = NULL;
+		cur_con->buff_len = 0;
+
+		cur_con->unwritten = NULL;
+		cur_con->unwritten_len = 0;
 	}
 
 	return cur_con;
@@ -36,14 +39,14 @@ int close_fd(server_t *server, int fd, const char *signature) {
 	int err = epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, fd, NULL);
 	if (err == -1) {
 		perror("epoll_ctl");
-		printf("failed to delete %s socket to epoll event", signature);
+		printf("failed to delete %s socket to epoll event\n", signature);
 		return err;
 	}
 
 	err = close(fd);
 	if (err == -1) {
 		perror("close");
-		printf("failed to close %s socket", signature);
+		printf("failed to close %s socket\n", signature);
 		return err;
 	}
 
@@ -171,7 +174,12 @@ int server_work(server_t* server) {
 				(!(events[i].events & EPOLLIN))) {
 
 				if(events[i].events & EPOLLHUP ) {
-					err = close_fd(server, events[i].data.fd, "peer connection");
+
+					connection_t* con = events[i].data.ptr;
+					if(con != NULL) {
+						err = close_fd(server, con->conn_fd, "peer connection");
+					}
+
 				}
 
 				continue;
@@ -211,6 +219,7 @@ int server_work(server_t* server) {
 
 				event.events = EPOLLIN | EPOLLET;
 				event.data.fd = cur_con->conn_fd;
+				event.data.ptr = cur_con;
 				if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, cur_con->conn_fd,
 							  &event) == -1) {
 					perror("epoll_ctl: conn_sock");
@@ -218,7 +227,7 @@ int server_work(server_t* server) {
 				}
 				// if the event is coming from the connected socket
 			} else {
-				server->connection_callback(events[i].data.fd);
+				server->connection_callback(events[i].data.ptr);
 			}
 		}
 	}
@@ -240,8 +249,20 @@ int server_close(server_t *server) {
 			sprintf(signature, "connection %d", i);
 			err = close_fd(server, conn->conn_fd, signature);
 		}
-		if(conn->buff)
-			free(conn->buff);
+		if(conn->buff_len) {
+			conn->buff_len = 0;
+			if(conn->buff) {
+				free(conn->buff);
+				conn->buff = NULL;
+			}
+		}
+		if(conn->unwritten_len) {
+			conn->unwritten_len = 0;
+			if(conn->unwritten) {
+				free(conn->unwritten);
+				conn->unwritten = NULL;
+			}
+		}
 	}
 
 	server->connections_n = 0;
