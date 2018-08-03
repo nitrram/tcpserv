@@ -2,7 +2,6 @@
 #include "cpp_io.h"
 
 #include <unistd.h>
-#include <pthread.h>
 #include <functional>
 #include <iostream>
 #include <cstring>
@@ -17,7 +16,7 @@ int main(int argc, char *argv[]) {
 			int	 n = 0;
 			char buf[1024];
 
-			memset(buf, '\0', 1024);
+			memset(buf, '\0', sizeof(buf));
 
 			while(1) {
 				n = read(fd, buf, 1024);
