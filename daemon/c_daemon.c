@@ -69,6 +69,36 @@ void loop_server() {
 	server_close(&server);
 }
 
+int custom_handler(void *data) {
+
+	connection_t *connection = data;
+
+	int response_len = 0;
+	char response[20];
+
+	response_len = print_cpu_stage1(connection->custom_map, response, sizeof(response));
+
+	// send client the response
+	while(1) {
+		int n = write(connection->conn_fd, response, response_len);
+		if (n == -1) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				continue;
+			}
+			perror("write");
+			printf("failed to write to client\n");
+			return -1;
+		} else if(n < response_len) {
+			connection->unwritten_len = inflateBuffer(
+				&connection->unwritten, connection->unwritten_len, response+n, response_len - n);
+		}
+
+		break;
+	}
+
+	return 0;
+}
+
 int conn_handler(void *data)
 {
 	int	 n = 0;
@@ -115,7 +145,12 @@ int conn_handler(void *data)
 	if(connection->buff && strcmp(connection->buff, "mem\n") == 0) {
 		response_len = print_mem_stats(response, sizeof(response));
 	} else if(connection->buff && strcmp(connection->buff, "cpu\n") == 0) {
-		response_len = print_cpu_stats(response, sizeof(response));
+		// get current stats and let timer do the rest -> on timer
+		// is finished, redirect to the other callback
+		print_cpu_stage0(connection->custom_map);
+		connection->custom_one_shot = custom_handler;
+		return START_TIMER;
+
 	} else {
 		strcpy(response, "incorrect command\n");
 		response_len = 18;

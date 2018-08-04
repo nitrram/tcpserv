@@ -8,6 +8,9 @@ extern "C" {
   int print_mem_stats(char *, size_t);
   int print_cpu_stats(char *, size_t);
 
+    int print_cpu_stage0();
+    int print_cpu_stage1(int *const map, char * dst, size_t len);
+
 #ifdef __cplusplus
 }
 #endif

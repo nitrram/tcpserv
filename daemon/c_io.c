@@ -52,13 +52,26 @@ int print_mem_stats(char *out, size_t out_len) {
 int print_cpu_stats(char *out, size_t out_len) {
 
 	int result = 0;
-	int map[10],prev_map[10];
+	int prev_map[10];
 
-	if((result = get_cpu_stats(prev_map)))
+	if((result = print_cpu_stage0(prev_map)))
 		return result;
 
 	// delay 400ms
 	usleep(400000);
+
+	return print_cpu_stage1(prev_map, out, out_len);
+}
+
+
+int print_cpu_stage0(int *prev_map) {
+
+	return get_cpu_stats(prev_map);
+}
+
+int print_cpu_stage1(int *const prev_map, char *out, size_t out_len) {
+	int result = 0;
+	int map[10];
 
 	if((result = get_cpu_stats(map)))
 		return result;
@@ -79,6 +92,8 @@ int print_cpu_stats(char *out, size_t out_len) {
 
 	return n;
 }
+
+
 
 // the arg. map is an array of the specific number of int values representing particular cpu stat
 // values, namely: user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice

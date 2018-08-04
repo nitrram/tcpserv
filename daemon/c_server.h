@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sys/epoll.h>
 #include <stddef.h>
 
 #define TCPSERV_BUF_LEN 1024
@@ -8,6 +9,7 @@
 extern "C" {
 #endif
 
+#define START_TIMER -3
 
 typedef int (*connection_handler)(void *);
 
@@ -18,6 +20,10 @@ typedef struct connection {
 
 	char *unwritten;
 	size_t unwritten_len;
+
+	int timer_fd;
+	int custom_map[10];
+	connection_handler custom_one_shot;
 
 } connection_t;
 
@@ -49,7 +55,6 @@ int server_close(server_t *server);
 #ifdef __cplusplus
 }
 #endif
-
 
 static connection_t *create_connection(server_t* server, int connection_fd);
 

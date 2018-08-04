@@ -11,10 +11,13 @@
 
 namespace tcpserv {
 
+	int Server::buf_len = 1024;
+
 	Server::Server() :
 		m_Epoll_fd(-1),
-		m_Listen_fd(-1),
-		m_Conn_fd(-1) {}
+		m_Listen_fd(-1)
+	{
+	}
 
 	int Server::setup(THandler handler) {
 		int err = 0;
@@ -105,6 +108,12 @@ namespace tcpserv {
 				// carry on waiting for next events
 				if ((events[i].events & (EPOLLERR | EPOLLHUP)) ||
 					(!(events[i].events & EPOLLIN))) {
+					if(events[i].events & EPOLLHUP ) {
+						Connection *con = static_cast<Connection*>(events[i].data.ptr);
+						if(con != NULL) {
+							err = closeSocketDescriptor(con->getSocketDescriptor(), "peer connection");
+						}
+					}
 					continue;
 				}
 
@@ -113,9 +122,15 @@ namespace tcpserv {
 					socklen_t client_len;
 					struct sockaddr_in client_addr;
 					client_len = sizeof(client_addr);
-					m_Conn_fd = accept(m_Listen_fd,
-									   reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
-					if (m_Conn_fd == -1) {
+
+					SConnection cur_con =
+						std::make_shared<Connection>(
+							accept(m_Listen_fd,
+								   reinterpret_cast<struct sockaddr *>(&client_addr), &client_len)
+						);
+					m_Connections.push_back(cur_con);
+
+					if (cur_con->getSocketDescriptor() == -1) {
 						if ((errno != EAGAIN) && (errno != EWOULDBLOCK)) {
 							std::cerr << "accept\n";
 							return;
@@ -125,24 +140,46 @@ namespace tcpserv {
 					}
 
 					int err;
-					if((err = makeSockNonBlocking(m_Conn_fd))) {
+					if((err = makeSockNonBlocking(cur_con->getSocketDescriptor()))) {
 						std::cerr << "connection blocking\n";
 						return;
 					}
 
 					event.events = EPOLLIN | EPOLLET;
-					event.data.fd = m_Conn_fd;
-					if (epoll_ctl(m_Epoll_fd, EPOLL_CTL_ADD, m_Conn_fd,
+					event.data.fd = cur_con->getSocketDescriptor();
+					event.data.ptr = cur_con.get();
+					if (epoll_ctl(m_Epoll_fd, EPOLL_CTL_ADD, cur_con->getSocketDescriptor(),
 								  &event) == -1) {
 						std::cerr << "epoll_ctl: conn_sock\n";
 						return;
 					}
 					// if the event is coming from the connected socket
 				} else {
-					m_Connection_callback(events[i].data.fd);
+					m_Connection_callback(events[i].data.ptr);
 				}
 			} // for(fds_len)
 		} //for indefinite
+	}
+
+	void Server::finish() {
+		int err = 0;
+		err = closeSocketDescriptor(m_Listen_fd, "listen socket");
+
+		for(SConnection conn : m_Connections) {
+			if(conn != NULL) {
+				err = closeSocketDescriptor(conn->getSocketDescriptor(), "connection");
+				if(!err) {
+					conn.reset();
+				}
+			}
+			conn.reset();
+		}
+
+		err = close(m_Epoll_fd);
+		if (err == -1) {
+			std::cerr << "close: " << errno << std::endl;
+			std::cerr << "failed to close epoll socket\n";
+		}
 	}
 
 	int Server::makeSockNonBlocking(int socket) {
@@ -161,6 +198,24 @@ namespace tcpserv {
 		if (err == -1) {
 			std::cerr << "fcntl: " << "Failed to set socket flags\n";
 			return -1;
+		}
+
+		return 0;
+	}
+
+	int Server::closeSocketDescriptor(int fd, std::string &&tag) {
+
+		int err = epoll_ctl(m_Epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+		if (err == -1) {
+			std::cerr << "epoll_ctl: " << errno << std::endl;
+			std::cerr << "failed to delete " << tag << " socket to epoll event\n";
+			return err;
+		}
+
+		err = close(fd);
+		if (err == -1) {
+			std::cerr << "failed to close " << tag << std::endl;
+			return err;
 		}
 
 		return 0;

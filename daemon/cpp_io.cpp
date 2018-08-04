@@ -42,12 +42,15 @@ namespace tcpserv {
 
 		map = getCpuValues();
 
+		// idle - iowait
 		int prev_idle = prev_map[3] + prev_map[4];
 		int idle = map[3] + map[4];
 
+		// user + nice + system + irq + softirq + steal
 		int prev_non_idle = prev_map[0] + prev_map[1] + prev_map[2] + prev_map[5] + prev_map[6] + prev_map[7];
 		int non_idle = map[0] + map[1] + map[2] + map[5] + map[6] + map[7];
 
+		// differences: total - prevTotal, resp. idle - prevIdle
 		int totald = (idle + non_idle) - (prev_idle + prev_non_idle);
 		int idled = (idle - prev_idle);
 

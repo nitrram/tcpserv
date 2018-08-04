@@ -5,10 +5,13 @@
 #include <errno.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <sys/epoll.h>
+#include <sys/timerfd.h>
+#include <time.h>
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+
+static struct epoll_event events[4];
 
 connection_t *create_connection(server_t* server, int connection_fd) {
 	if(server->connections == NULL) {
@@ -29,6 +32,9 @@ connection_t *create_connection(server_t* server, int connection_fd) {
 
 		cur_con->unwritten = NULL;
 		cur_con->unwritten_len = 0;
+
+		memset(cur_con->custom_map, 0, sizeof(cur_con->custom_map));
+		cur_con->timer_fd = -1;
 	}
 
 	return cur_con;
@@ -122,12 +128,12 @@ int server_listen(server_t* server) {
 	return err;
 }
 
+
 int server_work(server_t* server) {
 	int epoll_fd;
 	int err = 0;
 
 	struct epoll_event event = { 0 };
-	struct epoll_event events[4];
 
 	// creates a new epoll instance and returns a file
 	// descriptor referring to that instance.
@@ -141,9 +147,11 @@ int server_work(server_t* server) {
 	server->epoll_fd = epoll_fd;
 
 
+
+
 	// linked to epoll_fd.
 	event.data.fd = server->listen_fd;
-	event.events   = EPOLLIN | EPOLLET;
+	event.events   = EPOLLIN; // | EPOLLET;
 
 	err =
 		epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, server->listen_fd, &event);
@@ -217,8 +225,7 @@ int server_work(server_t* server) {
 					return err;
 				}
 
-				event.events = EPOLLIN | EPOLLET;
-				event.data.fd = cur_con->conn_fd;
+				event.events = EPOLLIN;// | EPOLLET;
 				event.data.ptr = cur_con;
 				if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, cur_con->conn_fd,
 							  &event) == -1) {
@@ -227,7 +234,43 @@ int server_work(server_t* server) {
 				}
 				// if the event is coming from the connected socket
 			} else {
-				server->connection_callback(events[i].data.ptr);
+				// send back data + timer_fd for optional opration
+				connection_t *conn = events[i].data.ptr;
+				if(conn->timer_fd != -1) {
+					conn->timer_fd = -1;
+					conn->custom_one_shot(conn);
+				} else {
+					if(server->connection_callback(events[i].data.ptr) == START_TIMER) {
+						conn->timer_fd = timerfd_create(CLOCK_REALTIME, 0); //TFD_NONBLOCK);
+						if (conn->timer_fd == -1) {
+							perror("timerfd_create");
+							return errno;
+						}
+
+						struct timespec now;
+						if (clock_gettime(CLOCK_REALTIME, &now) == -1) {
+							perror("clock_gettime");
+							return errno;
+						}
+						struct itimerspec timer_val;
+						timer_val.it_value.tv_sec = now.tv_sec + 1;
+						timer_val.it_value.tv_nsec = now.tv_nsec;
+						timer_val.it_interval.tv_sec = 0;
+						timer_val.it_interval.tv_nsec = 0;
+
+						if (timerfd_settime(conn->timer_fd, TFD_TIMER_ABSTIME, &timer_val, NULL) == -1) {
+							perror("timerfd_settime");
+							return errno;
+						}
+						event.events = EPOLLIN | EPOLLONESHOT;
+						event.data.ptr = events[i].data.ptr;
+						if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, conn->timer_fd,
+									  &event) == -1) {
+							perror("epoll_ctl: conn_sock");
+							return errno;
+						}
+					}
+				}
 			}
 		}
 	}
