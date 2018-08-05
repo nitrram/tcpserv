@@ -18,8 +18,7 @@ namespace tcpserv {
 
 	Server::Server() :
 		m_Epoll_fd(-1),
-		m_Listen_fd(-1)
-	{
+		m_Listen_fd(-1) {
 	}
 
 	int Server::setup(THandler handler) {
@@ -157,7 +156,7 @@ namespace tcpserv {
 					}
 				// if the event is coming from the connected socket
 				} else {
-						// send back data + timer_fd for optional opration
+					// send back data + timer_fd for optional opration
 					Connection *conn = static_cast<tcpserv::Connection*>(events[i].data.ptr);
 					if(conn->getTimerFd() != -1) {
 						conn->setTimerFd(-1);

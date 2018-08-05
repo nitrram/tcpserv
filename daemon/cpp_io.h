@@ -11,8 +11,7 @@ namespace tcpserv {
 
 	using SPrinter = std::shared_ptr<Printer>;
 
-	class Printer
-	{
+	class Printer {
 	public:
 
 		static std::string getCpuStats();

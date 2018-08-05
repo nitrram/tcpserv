@@ -114,7 +114,6 @@ int conn_handler(void *data)
 		connection->buff = NULL;
 	}
 
-
 	while(1) {
 		n = read(connection->conn_fd, buf, sizeof(buf));
 		if (n == -1) {

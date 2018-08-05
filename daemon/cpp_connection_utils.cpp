@@ -18,8 +18,7 @@ namespace tcpserv {
 
 		m_Connection->resetBuffer();
 
-		while(1)
-		{
+		while(1) {
 			int n = ::read(m_Connection->getSocketDescriptor(), buf, sizeof(buf));
 			if (n == -1) {
 				if (errno == EAGAIN || errno == EWOULDBLOCK) {
