@@ -17,11 +17,10 @@ namespace tcpserv {
 
 		static std::string getCpuStats();
 
+		static std::string getCpuStatsStaged(const std::array<int, 10> &prevMap);
+
 		static std::string getMemStats();
 
-	private:
-
 		static std::array<int, 10> getCpuValues();
-
 	};
 }

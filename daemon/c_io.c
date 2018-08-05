@@ -69,7 +69,7 @@ int print_cpu_stage0(int *prev_map) {
 	return get_cpu_stats(prev_map);
 }
 
-int print_cpu_stage1(int *const prev_map, char *out, size_t out_len) {
+int print_cpu_stage1(const int *const prev_map, char *out, size_t out_len) {
 	int result = 0;
 	int map[10];
 

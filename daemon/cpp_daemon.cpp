@@ -1,76 +1,62 @@
 #include "cpp_server.h"
 #include "cpp_connection.h"
+#include "cpp_connection_utils.h"
 #include "cpp_io.h"
 
+
+#include <signal.h>
+
 #include <unistd.h>
-#include <functional>
 #include <iostream>
 #include <cstring>
 
+void sign_handler(int signo);
+
+static std::shared_ptr<tcpserv::Server> server = std::make_shared<tcpserv::Server>();
+
 int main(int argc, char *argv[]) {
 
-	std::shared_ptr<tcpserv::Server> server = std::make_shared<tcpserv::Server>();
-	tcpserv::Printer printer;
+	if (signal(SIGINT, sign_handler) == SIG_ERR ||
+		signal(SIGTERM, sign_handler) == SIG_ERR) {
+		std::cerr << "failed to register signal handler\n";
+		return 1;
+	}
+
+	tcpserv::THandler stagedCallback =
+		[](void *data) {
+			tcpserv::Connection *connection = static_cast<tcpserv::Connection*>(data);
+			tcpserv::ConnectionHelper helper(connection);
+
+			std::string response = tcpserv::Printer::getCpuStatsStaged(connection->getStagedData());
+
+			return helper.write(response);
+		};
 
 	tcpserv::THandler callback =
-		[printer](void *data) {
-			int	 n = 0;
-			char buf[tcpserv::Server::buf_len];
-
-			memset(buf, '\0', sizeof(buf));
-
+		[stagedCallback](void *data) {
 			tcpserv::Connection *connection = static_cast<tcpserv::Connection*>(data);
-			int fd = connection->getSocketDescriptor();
+			tcpserv::ConnectionHelper helper(connection);
 
-			while(1) {
-				n = read(fd, buf, sizeof(buf));
-				if (n == -1) {
-					if (errno == EAGAIN || errno == EWOULDBLOCK) {
-						return errno;
-					}
-
-					std::cerr << "read: " << "Failed to read from the client\n";
-					return errno;
-				}
-
-				if (n == 0) {
-					break;
-				}
-
-				std::string sbuf(buf);
-				connection->appendBuffer({sbuf.begin(), sbuf.end()});
-
-				if(connection->getBuffer().back() == 0xa)
-					break;
+			int err;
+			if((err = helper.read())) {
+				std::cerr << "read from socket error\n";
+				return err;
 			}
 
-			std::string sbuf(buf);
 			std::string response;
+			std::string cmd(connection->getBuffer().begin(), connection->getBuffer().end());
 
-			if(sbuf ==	"mem\n") {
-				response = printer.getMemStats();
-			} else if(sbuf == "cpu\n") {
-				response = printer.getCpuStats();
+			if(cmd == "mem\n") {
+				response = tcpserv::Printer::getMemStats();
+			} else if(cmd == "cpu\n") {
+				connection->setStagedData(tcpserv::Printer::getCpuValues());
+				connection->setStagedHandler(stagedCallback);
+				return START_TIMER;
 			} else {
 				response =	"incorrect command\n";
 			}
 
-			while(1) {
-				n = write(fd, response.c_str(), response.size());
-				if (n == -1) {
-					if (errno == EAGAIN || errno == EWOULDBLOCK) {
-						continue;
-					}
-					std::cerr << "write: " << "Failed to write to client\n";
-					return -1;
-				} else if(static_cast<size_t>(n) < response.size()) {
-					connection->appendUnwritten({response.begin() + n, response.end()});
-				}
-
-				break;
-			}
-
-			return 0;
+			return helper.write(response);
 		};
 
 	int err;
@@ -87,4 +73,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	return 0;
+}
+
+void sign_handler(int signo __attribute__ ((unused))) {
+	server->finish();
 }

@@ -225,7 +225,7 @@ int server_work(server_t* server) {
 					return err;
 				}
 
-				event.events = EPOLLIN;// | EPOLLET;
+				event.events = EPOLLIN;
 				event.data.ptr = cur_con;
 				if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, cur_con->conn_fd,
 							  &event) == -1) {

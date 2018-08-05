@@ -3,9 +3,12 @@
 #include <unistd.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <sys/timerfd.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
+#include <time.h>
+#include <errno.h>
 
 #include <iostream>
 
@@ -146,16 +149,52 @@ namespace tcpserv {
 					}
 
 					event.events = EPOLLIN | EPOLLET;
-					event.data.fd = cur_con->getSocketDescriptor();
 					event.data.ptr = cur_con.get();
 					if (epoll_ctl(m_Epoll_fd, EPOLL_CTL_ADD, cur_con->getSocketDescriptor(),
 								  &event) == -1) {
 						std::cerr << "epoll_ctl: conn_sock\n";
 						return;
 					}
-					// if the event is coming from the connected socket
+				// if the event is coming from the connected socket
 				} else {
-					m_Connection_callback(events[i].data.ptr);
+						// send back data + timer_fd for optional opration
+					Connection *conn = static_cast<tcpserv::Connection*>(events[i].data.ptr);
+					if(conn->getTimerFd() != -1) {
+						conn->setTimerFd(-1);
+						conn->callStage(conn);
+					} else {
+						if(m_Connection_callback(events[i].data.ptr) == START_TIMER) {
+							conn->setTimerFd(timerfd_create(CLOCK_REALTIME, 0));
+							if (conn->getTimerFd() == -1) {
+								std::cerr << "timerfd_create\n";
+								return;
+							}
+
+							struct timespec now;
+							if (clock_gettime(CLOCK_REALTIME, &now) == -1) {
+								std::cerr << "clock_gettime\n";
+								return;
+							}
+
+							struct itimerspec timer_val;
+							timer_val.it_value.tv_sec = now.tv_sec + 1;
+							timer_val.it_value.tv_nsec = now.tv_nsec;
+							timer_val.it_interval.tv_sec = 0;
+							timer_val.it_interval.tv_nsec = 0;
+
+							if (timerfd_settime(conn->getTimerFd(), TFD_TIMER_ABSTIME, &timer_val, NULL) == -1) {
+								std::cerr << "timerfd_settime\n";
+								return;
+							}
+							event.events = EPOLLIN | EPOLLONESHOT;
+							event.data.ptr = events[i].data.ptr;
+							if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, conn->getTimerFd(),
+										  &event) == -1) {
+								std::cerr << "epoll_ctl: conn_sock\n";
+								return;
+							}
+						} // if callback == START_TIMER
+					} // if conn->getTimer() != -1
 				}
 			} // for(fds_len)
 		} //for indefinite

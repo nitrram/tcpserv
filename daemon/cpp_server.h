@@ -4,6 +4,8 @@
 #include <functional>
 #include <list>
 
+#define START_TIMER -3
+
 namespace tcpserv {
 
 	using THandler = std::function<int(void *)>;
